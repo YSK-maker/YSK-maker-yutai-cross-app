@@ -308,6 +308,7 @@ def init_state():
     ss.setdefault("_memo_loaded", False)
     ss.setdefault("_init_rights_checks", False)
     ss.setdefault("_init_cover_checks", False)
+    ss.setdefault("ui_mobile", True)  # ←追加（スマホ向け表示）
 
 def reset_page():
     st.session_state.page = 1
@@ -492,6 +493,7 @@ inprogress_codes = {c for c, oc in open_cnt.items() if oc > int(close_cnt.get(c,
 # =========================
 with tabs[0]:
     st.markdown("### 優待管理")
+    ss.ui_mobile = st.toggle("スマホ向け表示（カード）", value=bool(ss.ui_mobile))
     st.markdown('<div class="small-ui">', unsafe_allow_html=True)
 
     # 上段：リセット / 検索 / 右側フィルタ
@@ -767,7 +769,65 @@ with tabs[0]:
         ["コード", "銘柄名", "権利確定日", "株価", "現渡回数", "現渡（日付・株数）", "信用新規売り（日付・株数）", "株主優待の内容", "メモ"]
     ]
 
-    st.caption("メモは表のセルをクリックして編集できます（自動保存）。")
+# =========================
+# 表示：PCは表、スマホはカード
+# =========================
+if ss.ui_mobile:
+    st.caption("スマホ向け：カード表示（メモは各カード内で編集→保存）")
+
+    for _, r in page.iterrows():
+        code = str(r["code"]).zfill(4)
+        name = str(r["name"])
+        rights = _fmt_text(r["rights_raw"])
+        price = _fmt_price(r["price"])
+        cov_n = int(r.get("現渡回数", 0))
+        memo_now = ss.memo_prev.get(code, "")
+
+        with st.container(border=True):
+            # 1段目：タイトル
+            st.markdown(f"### {name}（{code}）")
+            # 2段目：要点（行数を絞る）
+            cA, cB, cC = st.columns([1.2, 1.2, 1.2])
+            cA.metric("株価", price)
+            cB.metric("権利確定", rights)
+            cC.metric("現渡回数", cov_n)
+
+            # 詳細（折りたたみ）
+            with st.expander("詳細（現渡 / 新規売り / 優待内容）"):
+                st.markdown("**現渡（日付・株数）**")
+                st.write(cover_map.get(code, "（現渡なし）"))
+                st.markdown("**信用新規売り（日付・株数）**")
+                st.write(newsell_map.get(code, "（新規売りなし）"))
+                st.markdown("**株主優待の内容**")
+                st.write(_fmt_text(r["incentive_text"]))
+
+            # メモ編集（スマホでの編集を最適化）
+            new_memo = st.text_area(
+                "メモ",
+                value=memo_now,
+                key=f"memo_{code}_{ss.page}",  # ページングしてもキー衝突しない
+                height=90,
+                placeholder="メモを書いて保存",
+            )
+
+            # 保存ボタン（スマホは“自動保存”より明示がUX良い）
+            btn_col1, btn_col2 = st.columns([1.0, 4.0])
+            with btn_col1:
+                if st.button("保存", key=f"save_{code}_{ss.page}", type="primary"):
+                    ok = memo_put(code, new_memo)
+                    if ok:
+                        ss.memo_prev[code] = new_memo
+                        st.toast("保存しました")
+                    else:
+                        st.error("保存に失敗しました")
+
+else:
+    st.caption("PC向け：表（メモはセル編集→自動保存）")
+
+    # 画面に出すdf（あなたの既存の display_df を使用）
+    display_df = page.rename(columns={"code": "コード", "name": "銘柄名"})[
+        ["コード", "銘柄名", "権利確定日", "株価", "現渡回数", "現渡（日付・株数）", "信用新規売り（日付・株数）", "株主優待の内容", "メモ"]
+    ]
 
     edited = st.data_editor(
         display_df,
@@ -800,6 +860,7 @@ with tabs[0]:
             ok = memo_put(code, memo_now)
             if ok:
                 ss.memo_prev[code] = memo_now
+
 
     # 前へ/次へ（表の最下段）
     b1, b2, b3 = st.columns([1.2, 1.2, 7.6], vertical_alignment="center")
@@ -930,3 +991,4 @@ with tabs[1]:
         tooltip=["year:N", "month:O", alt.Tooltip("amount:Q", title="現渡金額", format=",.0f")],
     ).properties(height=340, title=f"2. yyyy-mmごとの現渡金額（年別）{amount_note}")
     st.altair_chart(cfg18(ch2), width="stretch")
+
