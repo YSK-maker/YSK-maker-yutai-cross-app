@@ -379,19 +379,19 @@ st.set_page_config(page_title=t("page_title"), layout="wide")
 # =========================
 st.markdown(
     """
-<link rel="manifest" href="app/static/manifest.json">
+<link rel="manifest" href="/static/manifest.json">
 <meta name="theme-color" content="#ffffff">
 <script>
-  // PWA: Service Worker registration
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', function() {
-      navigator.serviceWorker.register('app/static/service-worker.js');
+      navigator.serviceWorker.register('/static/service-worker.js');
     });
   }
 </script>
     """,
     unsafe_allow_html=True,
 )
+
 
 init_state()
 ss = st.session_state
