@@ -15,6 +15,7 @@ st.sidebar.write("BUILD:", int(time.time()))
 # =========================
 # 設定
 # =========================
+ENABLE_PWA = False  # ← 本番ではPWAを無効にする
 REQUIRED_COLS = ["約定日", "取引種類", "銘柄名（ファンド名）", "銘柄コード", "数量", "摘要"]
 OPTIONAL_PRICE_COLS = [
     "約定単価", "約定単価(円)", "約定単価（円）", "単価", "単価(円)", "単価（円）",
@@ -373,26 +374,26 @@ def build_trade_text_map(df: pd.DataFrame, codes_set: set[str], label_kind: bool
 st.set_page_config(page_title=t("page_title"), layout="wide")
 
 # =========================
-# PWA（manifest読み込み / Service Worker登録）
-# 重要：/static/... に統一（/app/static は使わない）
+# PWA（本番ではOFF）
 # =========================
-st.markdown(
-    """
+if ENABLE_PWA:
+    st.markdown(
+        """
 <link rel="manifest" href="/static/manifest.json">
 <meta name="theme-color" content="#ffffff">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <script>
-  // ぐるぐる回避：/static/ を明示して登録。scopeもルートに固定。
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', function() {
       navigator.serviceWorker.register('/static/service-worker.js', { scope: '/' });
     });
   }
 </script>
-    """,
-    unsafe_allow_html=True,
-)
+        """,
+        unsafe_allow_html=True,
+    )
+
 
 init_state()
 ss = st.session_state
@@ -993,5 +994,6 @@ with tabs[1]:
         tooltip=["year:N", "month:O", alt.Tooltip("amount:Q", title="現渡金額", format=",.0f")],
     ).properties(height=340, title=f"2. yyyy-mmごとの現渡金額（年別）{amount_note}")
     st.altair_chart(cfg18(ch2), width="stretch")
+
 
 
